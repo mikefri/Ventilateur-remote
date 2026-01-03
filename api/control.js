@@ -1,53 +1,101 @@
-import { TuyaContext } from '@tuya/tuya-connector-nodejs';
+import axios from 'axios';
+import crypto from 'crypto-js';
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ msg: 'Méthode non autorisée' });
+    // Configuration des headers CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  const { accessId, accessSecret, deviceId, action, code, value } = req.body;
-
-  // Initialisation du contexte Tuya
-  const tuya = new TuyaContext({
-    baseUrl: 'https://openapi.tuyaeu.com', // Correspond au "Central Europe Data Center" de votre image
-    accessKey: accessId,
-    secretKey: accessSecret,
-  });
-
-  try {
-    let response;
-
-    if (action === 'getStatus') {
-      // Appel GET vers le statut (Référence à votre capture d'écran)
-      response = await tuya.request({
-        path: `/v1.0/devices/${deviceId}/status`,
-        method: 'GET'
-      });
-    } 
-    else if (action === 'sendCommand') {
-      // Appel POST pour envoyer une commande
-      response = await tuya.request({
-        path: `/v1.0/devices/${deviceId}/commands`,
-        method: 'POST',
-        body: {
-          "commands": [{ "code": code, "value": value }]
-        }
-      });
-    } else {
-      return res.status(400).json({ success: false, msg: 'Action inconnue' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    // Tuya renvoie souvent les données dans .result, on s'assure de renvoyer un objet propre
-    return res.status(200).json({
-      success: response.success,
-      result: response.result,
-      tid: response.tid
-    });
+    const { action, accessId, accessSecret, deviceId, code, value } = req.body;
+    const t = Date.now().toString();
+    const baseUrl = "https://openapi.tuyaeu.com";
 
-  } catch (error) {
-    console.error("Tuya API Error:", error);
-    res.status(500).json({ 
-      success: false, 
-      msg: error.message,
-      details: "Vérifiez vos identifiants Cloud Tuya et l'ID de l'appareil."
-    });
-  }
+    // Fonction de signature Tuya
+    const signRequest = (method, path, body = '', token = '') => {
+        const contentHash = crypto.SHA256(body).toString();
+        const stringToSign = [method, contentHash, "", path].join("\n");
+        const signStr = accessId + token + t + stringToSign;
+        return crypto.HmacSHA256(signStr, accessSecret).toString().toUpperCase();
+    };
+
+    try {
+        // 1. OBTENTION DU TOKEN
+        const tokenPath = "/v1.0/token?grant_type=1";
+        const tokenSign = signRequest("GET", tokenPath);
+        
+        const tokenResponse = await axios.get(`${baseUrl}${tokenPath}`, {
+            headers: {
+                'client_id': accessId,
+                'sign': tokenSign,
+                't': t,
+                'sign_method': 'HMAC-SHA256'
+            }
+        });
+
+        if (!tokenResponse.data.success) {
+            return res.status(401).json({ success: false, msg: "Tuya Auth Failed", detail: tokenResponse.data.msg });
+        }
+
+        const accessToken = tokenResponse.data.result.access_token;
+
+        // 2. GESTION DES ACTIONS
+        switch (action) {
+            case 'listDevices':
+                const listPath = "/v1.0/iot-01/associated-users/devices?size=50";
+                const listSign = signRequest("GET", listPath, "", accessToken);
+                const listRes = await axios.get(`${baseUrl}${listPath}`, {
+                    headers: {
+                        'client_id': accessId,
+                        'access_token': accessToken,
+                        'sign': listSign,
+                        't': t,
+                        'sign_method': 'HMAC-SHA256'
+                    }
+                });
+                // Filtre : Catégorie 'fs' = Fans
+                const fans = listRes.data.result.devices.filter(d => d.category === 'fs');
+                return res.json({ success: true, result: fans });
+
+            case 'getStatus':
+                const statusPath = `/v1.0/devices/${deviceId}/status`;
+                const statusSign = signRequest("GET", statusPath, "", accessToken);
+                const statusRes = await axios.get(`${baseUrl}${statusPath}`, {
+                    headers: {
+                        'client_id': accessId,
+                        'access_token': accessToken,
+                        'sign': statusSign,
+                        't': t,
+                        'sign_method': 'HMAC-SHA256'
+                    }
+                });
+                return res.json(statusRes.data);
+
+            case 'sendCommand':
+                const commandPath = `/v1.0/devices/${deviceId}/commands`;
+                const commandBody = JSON.stringify({ commands: [{ code, value }] });
+                const commandSign = signRequest("POST", commandPath, commandBody, accessToken);
+                const commandRes = await axios.post(`${baseUrl}${commandPath}`, commandBody, {
+                    headers: {
+                        'client_id': accessId,
+                        'access_token': accessToken,
+                        'sign': commandSign,
+                        't': t,
+                        'sign_method': 'HMAC-SHA256',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                return res.json(commandRes.data);
+
+            default:
+                return res.status(400).json({ success: false, msg: "Action inconnue" });
+        }
+
+    } catch (error) {
+        return res.status(500).json({ success: false, error: error.message });
+    }
 }
