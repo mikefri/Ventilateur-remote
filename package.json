@@ -1,9 +1,7 @@
 {
   "name": "tuya-fan-remote",
   "version": "1.0.0",
-  "description": "Interface PWA pour piloter les ventilateurs Tuya",
   "type": "module",
-  "main": "api/control.js",
   "dependencies": {
     "axios": "^1.6.0",
     "crypto-js": "^4.2.0"
