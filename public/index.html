@@ -1,126 +1,61 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mika Ventilo Pro</title>
+    <title>Mika Remote</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f3f7; display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; padding: 20px; border-radius: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 380px; text-align: center; }
-        .btn { padding: 15px; border-radius: 12px; border: none; cursor: pointer; font-weight: bold; width: 48%; margin: 5px 1%; transition: 0.2s; }
-        .btn-on { background: #e8f5e9; color: #2e7d32; }
-        .btn-off { background: #ffebee; color: #c62828; }
-        .btn-speed { background: #f5f5f5; width: 30%; margin: 5px 1.5%; }
-        .active { background: #00d2ff !important; color: white !important; }
-        select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; margin-bottom: 20px; }
-        .status { font-size: 0.8rem; color: #888; margin-top: 15px; }
-        .hidden { display: none; }
+        body { font-family: sans-serif; text-align: center; background: #f4f4f4; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 350px; margin: auto; }
+        button { width: 80%; padding: 15px; margin: 10px; border-radius: 10px; border: none; background: #007bff; color: white; font-weight: bold; cursor: pointer; }
+        .off { background: #dc3545; }
+        select { width: 80%; padding: 10px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <div id="status" class="status">Connexion en cours...</div>
-
-    <div id="view-config" class="hidden">
-        <h3>Configuration Cloud</h3>
-        <input type="text" id="cfg-id" placeholder="Access ID" style="width:90%; padding:10px; margin:5px;">
-        <input type="password" id="cfg-sec" placeholder="Access Secret" style="width:90%; padding:10px; margin:5px;">
-        <button class="btn btn-on" onclick="saveConfig()" style="width:95%">ENREGISTRER</button>
+    <div class="card">
+        <h3>Mon Ventilateur</h3>
+        <div id="status">Chargement...</div>
+        <select id="devList"></select>
+        <button onclick="send('switch', true)">ALLUMER</button>
+        <button class="off" onclick="send('switch', false)">ÉTEINDRE</button>
+        <hr>
+        <button onclick="send('fan_speed', '3')">VITESSE 3</button>
+        <button onclick="send('fan_speed', '6')">VITESSE MAX (6)</button>
     </div>
 
-    <div id="view-main" class="hidden">
-        <select id="dev-select" onchange="updateSelectedDevice(this.value)"></select>
-        
-        <div style="font-size: 60px; margin: 20px;">☢</div>
+    <script>
+        // TES CLÉS EN DUR POUR ÉVITER LES BUGS DE SAISIE
+        const cfg = {
+            id: 'ftwhcr4egaqh9vrf3daj',
+            sec: 'f8f6d5867ff341d08bc8bd91b0f1aa62'
+        };
 
-        <div style="display: flex; justify-content: space-between;">
-            <button class="btn btn-on" onclick="send('switch', true)">ON</button>
-            <button class="btn btn-off" onclick="send('switch', false)">OFF</button>
-        </div>
-
-        <h4 style="margin-top:20px;">Vitesse</h4>
-        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
-            <button class="btn btn-speed" onclick="send('fan_speed', '1')">1</button>
-            <button class="btn btn-speed" onclick="send('fan_speed', '2')">2</button>
-            <button class="btn btn-speed" onclick="send('fan_speed', '3')">3</button>
-            <button class="btn btn-speed" onclick="send('fan_speed', '4')">4</button>
-            <button class="btn btn-speed" onclick="send('fan_speed', '5')">5</button>
-            <button class="btn btn-speed" onclick="send('fan_speed', '6')">6</button>
-        </div>
-
-        <h4 style="margin-top:20px;">Mode</h4>
-        <div style="display: flex; justify-content: space-between;">
-            <button class="btn" onclick="send('fan_direction', 'forward')">🔄 Été</button>
-            <button class="btn" onclick="send('fan_direction', 'reverse')">🔄 Hiver</button>
-        </div>
-        
-        <p onclick="clearConfig()" style="font-size: 0.7rem; color: #ccc; cursor: pointer; margin-top: 20px;">Réinitialiser les clés</p>
-    </div>
-</div>
-
-<script>
-    const storage = (k, v) => v ? localStorage.setItem(k, v) : localStorage.getItem(k);
-
-    async function api(action, data = {}) {
-        const res = await fetch('/api/control', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action,
-                accessId: storage('t_id'),
-                accessSecret: storage('t_sec'),
-                deviceId: storage('t_dev'),
-                ...data
-            })
-        });
-        return res.json();
-    }
-
-    async function init() {
-        if (!storage('t_id')) {
-            document.getElementById('view-config').classList.remove('hidden');
-            document.getElementById('status').innerText = "Configuration requise";
-            return;
+        async function init() {
+            const res = await fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'listDevices', accessId: cfg.id, accessSecret: cfg.sec })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const list = document.getElementById('devList');
+                list.innerHTML = data.result.devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+                document.getElementById('status').innerText = "Connecté";
+            } else {
+                document.getElementById('status').innerText = "Erreur Tuya";
+            }
         }
 
-        const data = await api('listDevices');
-        if (data.success && data.result.length > 0) {
-            const select = document.getElementById('dev-select');
-            select.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-            if (!storage('t_dev')) storage('t_dev', data.result[0].id);
-            select.value = storage('t_dev');
-            
-            document.getElementById('view-main').classList.remove('hidden');
-            document.getElementById('status').innerText = "Appareils chargés";
-        } else {
-            alert("Erreur ou aucun appareil trouvé. Vérifiez vos clés.");
-            clearConfig();
+        async function send(code, value) {
+            const devId = document.getElementById('devList').value;
+            await fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'sendCommand', accessId: cfg.id, accessSecret: cfg.sec, deviceId: devId, code, value })
+            });
         }
-    }
-
-    function saveConfig() {
-        storage('t_id', document.getElementById('cfg-id').value);
-        storage('t_sec', document.getElementById('cfg-sec').value);
-        location.reload();
-    }
-
-    function clearConfig() {
-        localStorage.clear();
-        location.reload();
-    }
-
-    function updateSelectedDevice(id) {
-        storage('t_dev', id);
-    }
-
-    async function send(code, value) {
-        document.getElementById('status').innerText = "Envoi...";
-        const res = await api('sendCommand', { code, value });
-        document.getElementById('status').innerText = res.success ? "Ok !" : "Erreur";
-    }
-
-    init();
-</script>
+        init();
+    </script>
 </body>
 </html>
