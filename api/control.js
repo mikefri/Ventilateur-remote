@@ -32,9 +32,8 @@ export default async function handler(req, res) {
                 // OU les appareils dont le nom contient "ventilo"
                 const devices = rawResponse.result.devices || rawResponse.result;
                 const filtered = devices.filter(d => 
-                    d.category === 'fs' || 
-                    d.name.toLowerCase().includes('ventilo') || 
-                    d.name.toLowerCase().includes('ventilateur')
+                    d.category === 'fsd' || 
+                    d.name.toLowerCase().includes('ventilo') 
                 );
 
                 // On reconstruit la réponse avec uniquement les ventilateurs
