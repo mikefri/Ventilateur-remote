@@ -10,9 +10,8 @@ export default async function handler(req, res) {
 
     const { action, accessId, accessSecret, deviceId, code, value } = req.body || {};
     const t = Date.now().toString();
-    const baseUrl = "https://openapi.tuyaeu.com";
+    const baseUrl = "https://openapi.tuyaeu.com"; // Configuré pour Central Europe
 
-    // Fonction de signature corrigée
     const signRequest = (method, path, body = '', token = '') => {
         const contentHash = crypto.SHA256(body).toString();
         const stringToSign = [method, contentHash, "", path].join("\n");
@@ -28,12 +27,11 @@ export default async function handler(req, res) {
         // 1. OBTENTION DU TOKEN
         const tokenPath = "/v1.0/token?grant_type=1";
         const tokenSign = signRequest("GET", tokenPath);
-        
         const tokenResponse = await axios.get(`${baseUrl}${tokenPath}`, {
             headers: { 'client_id': accessId, 'sign': tokenSign, 't': t, 'sign_method': 'HMAC-SHA256' }
         });
 
-        if (!tokenResponse.data || !tokenResponse.data.success) {
+        if (!tokenResponse.data?.success) {
             return res.status(401).json({ success: false, msg: "Tuya Auth Failed", detail: tokenResponse.data?.msg });
         }
 
@@ -46,8 +44,6 @@ export default async function handler(req, res) {
 
         if (action === 'listDevices') {
             path = "/v1.0/iot-01/associated-users/devices?size=50";
-        } else if (action === 'getStatus') {
-            path = `/v1.0/devices/${deviceId}/status`;
         } else if (action === 'sendCommand') {
             path = `/v1.0/devices/${deviceId}/commands`;
             method = "POST";
@@ -57,7 +53,7 @@ export default async function handler(req, res) {
         }
 
         const sign = signRequest(method, path, body, accessToken);
-        const config = {
+        const result = await axios({
             method,
             url: `${baseUrl}${path}`,
             headers: {
@@ -69,20 +65,16 @@ export default async function handler(req, res) {
                 'Content-Type': 'application/json'
             },
             data: body
-        };
+        });
 
-        const result = await axios(config);
-        
-        // Filtrage spécifique pour la liste
+        // Retourne TOUS les appareils sans filtrage pour trouver "Salon"
         if (action === 'listDevices' && result.data.success) {
-            const fans = result.data.result.devices.filter(d => ['fs', 'cf', 'kj'].includes(d.category));
-            return res.json({ success: true, result: fans });
+            return res.json({ success: true, result: result.data.result.devices });
         }
 
         return res.json(result.data);
 
     } catch (error) {
-        console.error("Erreur Backend:", error.message);
         return res.status(500).json({ success: false, error: error.message });
     }
 }
