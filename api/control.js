@@ -2,16 +2,20 @@ import axios from 'axios';
 import crypto from 'crypto-js';
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
     if (req.method === 'OPTIONS') return res.status(200).end();
 
-    const { action, accessId, accessSecret, deviceId, code, value } = req.body || {};
+    // Sécurité : lit les clés soit dans le body (POST), soit dans l'URL (GET)
+    const accessId = req.body?.accessId || req.query?.accessId;
+    const accessSecret = req.body?.accessSecret || req.query?.accessSecret;
+    const { action, deviceId, code, value } = req.body || req.query;
+
+    if (!accessId || !accessSecret) {
+        return res.status(400).json({ success: false, error: "Identifiants manquants" });
+    }
+
     const t = Date.now().toString();
     const baseUrl = "https://openapi.tuyawen.com";
-
+   
     const signRequest = (method, path, body = '', token = '') => {
         const contentHash = crypto.SHA256(body).toString();
         const stringToSign = [method, contentHash, "", path].join("\n");
