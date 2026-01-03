@@ -9,126 +9,97 @@
         body { background-color: #f8f9fa; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
         .card { width: 100%; max-width: 400px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; }
         .btn-control { width: 100%; margin-bottom: 12px; padding: 12px; font-weight: 600; border-radius: 10px; }
-        .hidden { display: none; }
+        .section-title { font-size: 0.9rem; font-weight: bold; color: #666; text-transform: uppercase; margin-top: 15px; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         #status { font-size: 0.85rem; text-align: center; margin-bottom: 15px; font-weight: bold; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div id="configScreen" class="card hidden">
-    <h4 class="mb-3 text-center">Configuration Tuya</h4>
-    <p class="text-muted small text-center">Clés stockées localement dans votre navigateur.</p>
-    <div class="mb-3">
-        <label class="form-label">Access ID</label>
-        <input type="text" id="accessId" class="form-control" placeholder="Votre Access ID">
-    </div>
-    <div class="mb-3">
-        <label class="form-label">Access Secret</label>
-        <input type="password" id="accessSecret" class="form-control" placeholder="Votre Access Secret">
-    </div>
+    <h4 class="mb-3 text-center">Configuration</h4>
+    <input type="text" id="accessId" class="form-control mb-2" placeholder="Access ID">
+    <input type="password" id="accessSecret" class="form-control mb-3" placeholder="Access Secret">
     <button onclick="saveConfig()" class="btn btn-primary w-100">Enregistrer</button>
 </div>
 
 <div id="controlScreen" class="card hidden">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 class="m-0">Mon Ventilateur</h4>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0">Salon</h4>
         <button onclick="clearConfig()" class="btn btn-sm btn-outline-secondary">⚙️</button>
     </div>
     
     <div id="status">Connexion...</div>
-    
-    <select id="deviceSelect" class="form-select mb-4">
-        <option value="">Chargement...</option>
-    </select>
+    <select id="deviceSelect" class="form-select mb-3"><option value="">Chargement...</option></select>
 
+    <div class="section-title">Ventilateur</div>
     <div class="row gx-2">
-        <div class="col-6"><button onclick="send('switch', true)" class="btn btn-primary btn-control">ON</button></div>
-        <div class="col-6"><button onclick="send('switch', false)" class="btn btn-danger btn-control">OFF</button></div>
+        <div class="col-6"><button onclick="send('fan_switch', true)" class="btn btn-primary btn-control">ON</button></div>
+        <div class="col-6"><button onclick="send('fan_switch', false)" class="btn btn-danger btn-control">OFF</button></div>
     </div>
-    <hr class="my-4">
-    <button onclick="send('fan_speed_enum', '3')" class="btn btn-outline-primary btn-control">VITESSE 3</button>
-    <button onclick="send('fan_speed_enum', '6')" class="btn btn-outline-primary btn-control">VITESSE MAX</button>
+    
+    <div class="d-flex justify-content-between gap-2">
+        <button onclick="send('fan_speed', 1)" class="btn btn-outline-primary btn-sm w-100">Vit. 1</button>
+        <button onclick="send('fan_speed', 3)" class="btn btn-outline-primary btn-sm w-100">Vit. 3</button>
+        <button onclick="send('fan_speed', 6)" class="btn btn-primary btn-sm w-100">MAX (6)</button>
+    </div>
+
+    <div class="section-title">Lumière</div>
+    <div class="row gx-2">
+        <div class="col-6"><button onclick="send('switch_led', true)" class="btn btn-warning btn-control text-white">Lumière ON</button></div>
+        <div class="col-6"><button onclick="send('switch_led', false)" class="btn btn-secondary btn-control">Lumière OFF</button></div>
+    </div>
 </div>
 
 <script>
     const statusEl = document.getElementById('status');
 
-    // Gestion du stockage local
     function saveConfig() {
-        const id = document.getElementById('accessId').value;
-        const secret = document.getElementById('accessSecret').value;
-        if(!id || !secret) return alert("Veuillez remplir les deux champs.");
-        localStorage.setItem('tuya_id', id);
-        localStorage.setItem('tuya_secret', secret);
+        localStorage.setItem('tuya_id', document.getElementById('accessId').value);
+        localStorage.setItem('tuya_secret', document.getElementById('accessSecret').value);
         location.reload();
     }
 
-    function clearConfig() {
-        if(confirm("Supprimer les clés du navigateur ?")) {
-            localStorage.clear();
-            location.reload();
-        }
-    }
+    function clearConfig() { if(confirm("Réinitialiser ?")) { localStorage.clear(); location.reload(); } }
 
-    // Appels API
     async function apiCall(data) {
-        const payload = {
-            accessId: localStorage.getItem('tuya_id'),
-            accessSecret: localStorage.getItem('tuya_secret'),
-            ...data
-        };
-
-        const response = await fetch('/api/control', {
+        const res = await fetch('/api/control', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+                accessId: localStorage.getItem('tuya_id'),
+                accessSecret: localStorage.getItem('tuya_secret'),
+                ...data
+            })
         });
-        return await response.json();
+        return await res.json();
     }
 
     async function init() {
-        const id = localStorage.getItem('tuya_id');
-        if (!id) {
-            document.getElementById('configScreen').classList.remove('hidden');
-            return;
-        }
-        
+        if (!localStorage.getItem('tuya_id')) return document.getElementById('configScreen').classList.remove('hidden');
         document.getElementById('controlScreen').classList.remove('hidden');
         
-        try {
-            const data = await apiCall({ action: 'listDevices' });
-            if (data.success) {
-                const select = document.getElementById('deviceSelect');
-                const devices = data.result.devices || data.result;
-                select.innerHTML = devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-                statusEl.innerText = "Prêt";
-                statusEl.style.color = "green";
-            } else {
-                statusEl.innerText = "Erreur Tuya : " + data.msg;
-                statusEl.style.color = "red";
-            }
-        } catch (e) {
-            statusEl.innerText = "Erreur de liaison serveur";
-            statusEl.style.color = "red";
+        const data = await apiCall({ action: 'listDevices' });
+        if (data.success) {
+            const devices = data.result.devices || data.result;
+            document.getElementById('deviceSelect').innerHTML = devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            statusEl.innerText = "Appareil prêt";
+            statusEl.style.color = "green";
         }
     }
 
     async function send(code, value) {
         const deviceId = document.getElementById('deviceSelect').value;
-        if(!deviceId) return;
-        
         statusEl.innerText = "Envoi...";
         try {
             const data = await apiCall({ action: 'send', deviceId, code, value });
             if (data.success) {
-                statusEl.innerText = "Réussi !";
-                setTimeout(() => { statusEl.innerText = "Prêt"; }, 2000);
+                statusEl.innerText = "Commande OK";
+                setTimeout(() => { statusEl.innerText = "Appareil prêt"; }, 2000);
             } else {
                 alert("Erreur : " + data.msg);
             }
-        } catch (e) {
-            alert("Erreur réseau");
-        }
+        } catch (e) { alert("Erreur réseau"); }
     }
 
     init();
