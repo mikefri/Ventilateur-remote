@@ -1,6 +1,6 @@
 {
   "type": "module",
   "dependencies": {
-    "@tuya/tuya-connector-nodejs": "^1.0.12"
+    "@tuya/tuya-connector-nodejs": "*"
   }
 }
