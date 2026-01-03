@@ -126,14 +126,32 @@
     const getStored = (k) => localStorage.getItem(k);
     
     // 1. Charger la liste des ventilateurs
-    async function loadDevices() {
-        try {
-            const res = await fetch('/api/control', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'listDevices', accessId: getStored('tuya_id'), accessSecret: getStored('tuya_secret') })
-            });
-            const data = await res.json();
+// Remplace tes appels fetch par cette version plus robuste :
+async function loadDevices() {
+    const id = getStored('tuya_id');
+    const secret = getStored('tuya_secret');
+    if(!id || !secret) return;
+
+    try {
+        const res = await fetch('/api/control', { // Vérifie bien le slash /
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                action: 'listDevices', 
+                accessId: id, 
+                accessSecret: secret 
+            })
+        });
+
+        // AJOUTE CECI POUR VOIR L'ERREUR DANS LA CONSOLE SI ÇA ÉCHOUE
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error("Erreur API détaillée:", errorText);
+            document.getElementById('status-msg').innerText = "Erreur API " + res.status;
+            return;
+        }
+
+        const data = await res.json();
             if (data.success && data.result.length > 0) {
                 const sel = document.getElementById('device-selector');
                 sel.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
