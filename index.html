@@ -11,16 +11,13 @@
         body { background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px 0; }
         .main-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); border-radius: 40px; padding: 25px; width: 100%; max-width: 450px; margin: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.4); }
         
-        /* Animation Hélice */
         .fan-display { height: 110px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
         .fan-icon { font-size: 3.5rem; color: var(--primary); transition: all 0.5s ease; }
         .spinning { animation: spin linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* Badge Minuteur (Valeur brute serveur) */
         .timer-badge { background: #fee2e2; color: #ef4444; padding: 6px 16px; border-radius: 50px; font-size: 0.8rem; font-weight: 800; margin-top: 10px; border: 1px solid #fecaca; display: inline-block; }
 
-        /* Sections & Boutons */
         .control-section { background: white; border-radius: 25px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
         .section-label { font-size: 0.7rem; font-weight: 800; color: #8d99ae; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 15px; display: block; }
         
@@ -30,7 +27,6 @@
         .btn-off { background: #edf2f4; color: #8d99ae; }
         .speed-btn.active { background: var(--primary); color: white; box-shadow: 0 8px 20px rgba(67, 97, 238, 0.3); }
 
-        /* Modes Lumière */
         .mode-btn { border-radius: 12px; border: 1px solid #eee; padding: 6px 12px; font-size: 0.75rem; font-weight: 700; background: #f8f9fa; transition: all 0.2s; }
         .mode-btn.active { background: #ffbe0b; color: white; border-color: #ffbe0b; }
 
@@ -50,7 +46,7 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <span id="status" class="status-pill">CONNEXION...</span>
+            <span id="status" class="status-pill">SYNC...</span>
             <select id="deviceSelect" class="form-select form-select-sm border-0 w-50 fw-bold" onchange="refreshStatus()"></select>
         </div>
 
@@ -70,31 +66,28 @@
             </div>
         </div>
 
-        <div id="lightSection" class="control-section">
+        <div id="lightSection" class="control-section hidden">
             <span class="section-label">Lumière & Ambiances</span>
             <div class="row g-2 mb-3">
                 <div class="col-6"><button onclick="send('switch_led', true)" class="btn btn-custom w-100" style="background:#ffbe0b; color:white">Lumière ON</button></div>
                 <div class="col-6"><button onclick="send('switch_led', false)" class="btn btn-custom btn-off w-100">OFF</button></div>
             </div>
-
             <div class="d-flex gap-1 mb-3 overflow-auto pb-2">
                 <button onclick="send('work_mode', 'white')" class="mode-btn" data-mode="white">Blanc</button>
                 <button onclick="send('work_mode', 'colour')" class="mode-btn" data-mode="colour">Couleur</button>
                 <button onclick="send('work_mode', 'scene')" class="mode-btn" data-mode="scene">Scène</button>
                 <button onclick="send('work_mode', 'music')" class="mode-btn" data-mode="music">Musique</button>
             </div>
-
             <label class="section-label">Luminosité</label>
             <input type="range" id="brightRange" class="form-range mb-3" min="10" max="1000" onchange="send('bright_value', parseInt(this.value))">
-            
-            <label class="section-label">Température (Chaud/Froid)</label>
+            <label class="section-label">Température</label>
             <input type="range" id="tempRange" class="form-range" min="0" max="1000" onchange="send('temp_value', parseInt(this.value))">
         </div>
 
         <div class="control-section mb-0">
             <div class="row">
                 <div class="col-6 border-end">
-                    <span class="section-label">Sens</span>
+                    <span class="section-label">Rotation</span>
                     <button onclick="send('fan_direction', 'forward')" class="btn btn-sm btn-outline-primary w-100 mb-1">Été</button>
                     <button onclick="send('fan_direction', 'reverse')" class="btn btn-sm btn-outline-secondary w-100">Hiver</button>
                 </div>
@@ -105,7 +98,6 @@
                         <option value="60">1H</option>
                         <option value="120">2H</option>
                         <option value="240">4H</option>
-                        <option value="480">8H</option>
                     </select>
                 </div>
             </div>
@@ -127,12 +119,24 @@
         const deviceId = document.getElementById('deviceSelect').value;
         if(!deviceId) return;
         
-        const statusData = await apiCall({ action: 'getStatus', deviceId });
+        // On récupère le schéma et le statut en même temps
+        const [schemaData, statusData] = await Promise.all([
+            apiCall({ action: 'getSchema', deviceId }),
+            apiCall({ action: 'getStatus', deviceId })
+        ]);
 
+        // 1. GESTION DE LA VISIBILITÉ DE LA LUMIÈRE
+        if(schemaData.success) {
+            const functions = schemaData.result.functions || [];
+            const hasLight = functions.some(f => f.code === 'switch_led');
+            document.getElementById('lightSection').classList.toggle('hidden', !hasLight);
+        }
+
+        // 2. MISE À JOUR DES ÉTATS
         if(statusData.success) {
             const states = statusData.result;
             
-            // Logique Moteur
+            // Moteur
             const isOn = states.find(s => s.code === 'fan_switch')?.value === true;
             const speed = states.find(s => s.code === 'fan_speed')?.value || 1;
             const fanIcon = document.getElementById('fanIcon');
@@ -140,16 +144,15 @@
             if(isOn) fanIcon.style.animationDuration = (4 - (speed * 0.5)) + 's';
             document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-speed') == speed));
 
-            // Logique Minuteur (Brute serveur)
+            // Minuteur
             const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
             document.getElementById('timerContainer').classList.toggle('hidden', timer <= 0);
             document.getElementById('timeLeft').innerText = timer;
 
-            // Logique Lumière (Récupération des sliders et modes)
+            // Lumière (si visible)
             const mode = states.find(s => s.code === 'work_mode')?.value;
             const bright = states.find(s => s.code === 'bright_value')?.value;
             const temp = states.find(s => s.code === 'temp_value')?.value;
-
             if(bright) document.getElementById('brightRange').value = bright;
             if(temp) document.getElementById('tempRange').value = temp;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-mode') === mode));
@@ -172,7 +175,7 @@
             const select = document.getElementById('deviceSelect');
             select.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name.toUpperCase()}</option>`).join('');
             refreshStatus();
-            setInterval(refreshStatus, 10000); // Sync toutes les 10s
+            setInterval(refreshStatus, 10000);
         }
     }
 
