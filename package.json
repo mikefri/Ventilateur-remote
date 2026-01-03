@@ -1,9 +1,0 @@
-{
-  "name": "clim-airton",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@tuya/tuya-connector-nodejs": "latest",
-    "@vercel/kv": "latest"
-  }
-}
