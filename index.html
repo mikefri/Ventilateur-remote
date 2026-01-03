@@ -145,9 +145,16 @@
             document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-speed') == speed));
 
             // Minuteur
-            const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
-            document.getElementById('timerContainer').classList.toggle('hidden', timer <= 0);
-            document.getElementById('timeLeft').innerText = timer;
+const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
+const timerContainer = document.getElementById('timerContainer');
+
+// On affiche le badge UNIQUEMENT si le ventilo est allumé ET que le timer est > 0
+if (isOn && timer > 0) {
+    timerContainer.classList.remove('hidden');
+    document.getElementById('timeLeft').innerText = timer;
+} else {
+    timerContainer.classList.add('hidden');
+}
 
             // Lumière (si visible)
             const mode = states.find(s => s.code === 'work_mode')?.value;
