@@ -3,120 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ventilo Mika Pro Max</title>
+    <title>Mika Fan Control</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --primary: #4361ee; --bg: #f0f4f8; --text: #2b2d42; }
-        body { background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px 0; }
-        .main-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); border-radius: 40px; padding: 25px; width: 100%; max-width: 450px; margin: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.1); }
+        body { background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; display: flex; align-items: center; padding: 20px 0; }
+        .main-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(15px); border-radius: 40px; padding: 25px; width: 100%; max-width: 450px; margin: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.4); }
         
-        /* Animations */
-        .fan-icon { font-size: 3rem; color: var(--primary); transition: all 0.5s ease; }
+        .fan-display { height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 20px; }
+        .fan-icon { font-size: 3.5rem; color: var(--primary); transition: color 0.5s ease; }
         .spinning { animation: spin linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-        /* Sections */
-        .control-section { background: white; border-radius: 25px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+        .timer-badge { background: #f1f5f9; color: #475569; padding: 6px 15px; border-radius: 50px; font-size: 0.85rem; font-weight: 700; margin-top: 10px; display: inline-block; border: 1px solid #e2e8f0; }
+
+        .control-section { background: white; border-radius: 25px; padding: 20px; margin-bottom: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
         .section-label { font-size: 0.7rem; font-weight: 800; color: #8d99ae; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: block; }
         
-        /* Boutons Physiques */
-        .btn-custom, .speed-btn { border-radius: 15px; border: none; font-weight: 700; transition: all 0.2s ease; padding: 12px; }
-        .btn-custom:active, .speed-btn:active { transform: scale(0.92); }
+        .btn-custom, .speed-btn { border-radius: 18px; border: none; font-weight: 700; transition: all 0.2s ease; padding: 12px; }
+        .btn-custom:active, .speed-btn:active { transform: scale(0.95); }
         .btn-on { background: var(--primary); color: white; }
         .btn-off { background: #edf2f4; color: #8d99ae; }
-        .speed-btn.active { background: var(--primary); color: white; box-shadow: 0 5px 15px rgba(67, 97, 238, 0.3); }
-
-        /* Sliders */
-        .form-range::-webkit-slider-runnable-track { background: #edf2f4; height: 8px; border-radius: 5px; }
-        .form-range::-webkit-slider-thumb { background: var(--primary); margin-top: -4px; }
+        .speed-btn.active { background: var(--primary); color: white; }
 
         .hidden { display: none !important; }
-        .mode-btn { font-size: 0.8rem; background: #f8f9fa; border: 1px solid #eee; border-radius: 10px; padding: 5px 10px; margin-right: 5px; }
-        .mode-btn.active { background: #ffbe0b; color: white; border-color: #ffbe0b; }
+        .status-pill { font-size: 0.7rem; font-weight: 800; padding: 5px 12px; border-radius: 50px; background: white; color: var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="controlScreen" class="main-card">
-        <div class="text-center mb-3">
+        <div class="fan-display">
             <i id="fanIcon" class="fas fa-fan fan-icon"></i>
-            <div id="timerDisplay" class="small text-muted mt-2 hidden"><i class="far fa-clock"></i> Fin dans : <span id="timeLeft">0</span> min</div>
+            <div id="timerContainer" class="hidden">
+                <span class="timer-badge"><i class="far fa-clock me-1"></i> Éteint dans : <span id="timeLeft">0</span> min</span>
+            </div>
         </div>
 
-        <div class="d-flex justify-content-between mb-3">
-            <span id="status" class="badge rounded-pill bg-white text-primary shadow-sm p-2 px-3">SYNC...</span>
-            <select id="deviceSelect" class="form-select form-select-sm w-50 border-0 shadow-sm" onchange="refreshStatus()"></select>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <span id="status" class="status-pill">CONNEXION...</span>
+            <select id="deviceSelect" class="form-select form-select-sm border-0 w-50 fw-bold" onchange="refreshStatus()"></select>
         </div>
 
         <div class="control-section">
-            <span class="section-label">Moteur & Vitesses</span>
+            <span class="section-label">Ventilation</span>
             <div class="row g-2 mb-3">
                 <div class="col-6"><button onclick="send('fan_switch', true)" class="btn btn-custom btn-on w-100">ON</button></div>
                 <div class="col-6"><button onclick="send('fan_switch', false)" class="btn btn-custom btn-off w-100">OFF</button></div>
             </div>
             <div class="row row-cols-6 g-1">
-                <div class="col" v-for="n in 6"><button data-speed="1" onclick="send('fan_speed', 1)" class="btn speed-btn w-100">1</button></div>
-                <div class="col"><button data-speed="2" onclick="send('fan_speed', 2)" class="btn speed-btn w-100">2</button></div>
-                <div class="col"><button data-speed="3" onclick="send('fan_speed', 3)" class="btn speed-btn w-100">3</button></div>
-                <div class="col"><button data-speed="4" onclick="send('fan_speed', 4)" class="btn speed-btn w-100">4</button></div>
-                <div class="col"><button data-speed="5" onclick="send('fan_speed', 5)" class="btn speed-btn w-100">5</button></div>
-                <div class="col"><button data-speed="6" onclick="send('fan_speed', 6)" class="btn speed-btn w-100">6</button></div>
+                <button data-speed="1" onclick="send('fan_speed', 1)" class="btn speed-btn">1</button>
+                <button data-speed="2" onclick="send('fan_speed', 2)" class="btn speed-btn">2</button>
+                <button data-speed="3" onclick="send('fan_speed', 3)" class="btn speed-btn">3</button>
+                <button data-speed="4" onclick="send('fan_speed', 4)" class="btn speed-btn">4</button>
+                <button data-speed="5" onclick="send('fan_speed', 5)" class="btn speed-btn">5</button>
+                <button data-speed="6" onclick="send('fan_speed', 6)" class="btn speed-btn">6</button>
             </div>
         </div>
 
         <div id="lightSection" class="control-section hidden">
-            <span class="section-label">Lumière & Ambiance</span>
+            <span class="section-label">Lumière</span>
             <div class="row g-2 mb-3">
-                <div class="col-6"><button onclick="send('switch_led', true)" class="btn btn-custom btn-on w-100" style="background:#ffbe0b">Lumière ON</button></div>
+                <div class="col-6"><button onclick="send('switch_led', true)" class="btn btn-custom w-100" style="background:#ffbe0b; color:white">ON</button></div>
                 <div class="col-6"><button onclick="send('switch_led', false)" class="btn btn-custom btn-off w-100">OFF</button></div>
             </div>
-            
-            <div class="mb-3">
-                <label class="section-label">Luminosité</label>
-                <input type="range" class="form-range" min="10" max="1000" onchange="send('bright_value', parseInt(this.value))">
-            </div>
-
-            <div class="mb-3">
-                <label class="section-label">Température (Chaud/Froid)</label>
-                <input type="range" class="form-range" min="0" max="1000" onchange="send('temp_value', parseInt(this.value))">
-            </div>
-
-            <div class="d-flex overflow-auto pb-2">
-                <button onclick="send('work_mode', 'white')" class="mode-btn">Solaire</button>
-                <button onclick="send('work_mode', 'scene')" class="mode-btn">Scène</button>
-                <button onclick="send('work_mode', 'music')" class="mode-btn">Musique ♫</button>
-            </div>
+            <input type="range" class="form-range mb-2" min="10" max="1000" onchange="send('bright_value', parseInt(this.value))">
+            <input type="range" class="form-range" min="0" max="1000" onchange="send('temp_value', parseInt(this.value))">
         </div>
 
         <div class="control-section mb-0">
-            <div class="row">
-                <div class="col-6">
-                    <span class="section-label">Direction</span>
-                    <div class="d-flex gap-1">
-                        <button onclick="send('fan_direction', 'forward')" class="btn btn-off btn-sm flex-grow-1">Été</button>
-                        <button onclick="send('fan_direction', 'reverse')" class="btn btn-off btn-sm flex-grow-1">Hiver</button>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <span class="section-label">Minuteur (Min)</span>
-                    <select class="form-select form-select-sm" onchange="send('countdown_left_fan', parseInt(this.value))">
-                        <option value="0">OFF</option>
-                        <option value="60">1h</option>
-                        <option value="120">2h</option>
-                        <option value="240">4h</option>
-                    </select>
-                </div>
-            </div>
+            <span class="section-label">Minuteur</span>
+            <select class="form-select" onchange="send('countdown_left_fan', parseInt(this.value))">
+                <option value="0">Désactivé</option>
+                <option value="60">1 Heure</option>
+                <option value="120">2 Heures</option>
+                <option value="240">4 Heures</option>
+                <option value="480">8 Heures</option>
+            </select>
         </div>
     </div>
 </div>
 
 <script>
-    const statusEl = document.getElementById('status');
-    const fanIcon = document.getElementById('fanIcon');
-
     async function apiCall(data) {
         const res = await fetch('/api/control', {
             method: 'POST',
@@ -134,58 +104,54 @@
         const deviceId = document.getElementById('deviceSelect').value;
         if(!deviceId) return;
         
-        const [schema, statusData] = await Promise.all([
-            apiCall({ action: 'getSchema', deviceId }),
-            apiCall({ action: 'getStatus', deviceId })
-        ]);
-
-        if(schema.success) {
-            const hasLight = (schema.result.functions || []).some(f => f.code === 'switch_led');
-            document.getElementById('lightSection').classList.toggle('hidden', !hasLight);
-        }
+        const statusData = await apiCall({ action: 'getStatus', deviceId });
 
         if(statusData.success) {
             const states = statusData.result;
             const isOn = states.find(s => s.code === 'fan_switch')?.value === true;
             const speed = states.find(s => s.code === 'fan_speed')?.value || 1;
-            const timer = states.find(s => s.code === 'countdown_left_fan')?.value;
+            const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
 
-            // Animation
-            fanIcon.className = 'fas fa-fan fan-icon' + (isOn ? ' spinning' : '');
-            if(isOn) fanIcon.style.animationDuration = (4 - (speed * 0.5)) + 's';
+            // Mise à jour de l'hélice
+            const icon = document.getElementById('fanIcon');
+            icon.className = 'fas fa-fan fan-icon' + (isOn ? ' spinning' : '');
+            if(isOn) icon.style.animationDuration = (4 - (speed * 0.5)) + 's';
             
-            // Vitesses
+            // Mise à jour boutons vitesse
             document.querySelectorAll('.speed-btn').forEach(b => {
                 b.classList.toggle('active', b.getAttribute('data-speed') == speed);
             });
 
-            // Minuteur
-            if(timer > 0) {
-                document.getElementById('timerDisplay').classList.remove('hidden');
+            // Mise à jour Minuteur (Uniquement via serveur)
+            const timerContainer = document.getElementById('timerContainer');
+            if (timer > 0) {
+                timerContainer.classList.remove('hidden');
                 document.getElementById('timeLeft').innerText = timer;
             } else {
-                document.getElementById('timerDisplay').classList.add('hidden');
+                timerContainer.classList.add('hidden');
             }
 
-            statusEl.innerText = 'CONNECTÉ';
+            document.getElementById('status').innerText = 'À JOUR';
         }
     }
 
     async function send(code, value) {
         const deviceId = document.getElementById('deviceSelect').value;
-        statusEl.innerText = 'ENVOI...';
-        await apiCall({ action: 'send', deviceId, code, value });
-        setTimeout(refreshStatus, 1000);
+        document.getElementById('status').innerText = '...';
+        const data = await apiCall({ action: 'send', deviceId, code, value });
+        if(data.success) setTimeout(refreshStatus, 1500); // Rafraîchir juste après l'envoi
     }
 
     async function init() {
-        if (!localStorage.getItem('tuya_id')) return alert("Configure les clés d'abord");
+        if (!localStorage.getItem('tuya_id')) return;
         const data = await apiCall({ action: 'listDevices' });
         if (data.success) {
             const select = document.getElementById('deviceSelect');
-            select.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            select.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name.toUpperCase()}</option>`).join('');
             refreshStatus();
-            setInterval(refreshStatus, 20000);
+            
+            // RAFRAÎCHISSEMENT TOUTES LES 10 SECONDES
+            setInterval(refreshStatus, 10000); 
         }
     }
 
