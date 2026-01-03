@@ -2,241 +2,111 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#00d2ff">
-    <link rel="manifest" href="/manifest.json">
-
-    <title>Fan Control Pro - Multi-Device</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fan Remote</title>
     <style>
-        :root { 
-            --bg: #f0f3f7; --card: #ffffff; --primary: #00d2ff; 
-            --success: #2ecc71; --danger: #ff6b6b; --text: #2c3e50; --soft: #95a5a6; 
-        }
-        
-        body { 
-            font-family: -apple-system, system-ui, sans-serif; background: var(--bg); 
-            color: var(--text); display: flex; flex-direction: column; align-items: center; 
-            padding: 20px; margin: 0; min-height: 100vh;
-        }
-
-        .card { 
-            background: var(--card); padding: 25px; border-radius: 24px; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08); width: 100%; max-width: 400px; 
-            text-align: center; box-sizing: border-box; position: relative;
-        }
-
-        /* Sélecteur de ventilateur amélioré */
-        .device-selector-container {
-            margin-bottom: 20px; text-align: left; background: #eef2f5;
-            padding: 15px; border-radius: 15px; display: none;
-        }
-        select {
-            width: 100%; padding: 12px; border-radius: 10px; border: 2px solid #d1d9e0;
-            background: white; font-weight: 600; font-size: 1rem; color: var(--text);
-            cursor: pointer; outline: none;
-        }
-
-        .fan-visual {
-            width: 120px; height: 120px; margin: 15px auto; display: flex;
-            align-items: center; justify-content: center; font-size: 80px;
-            color: var(--primary); position: relative;
-        }
-        
-        .spinning { animation: rotate var(--spin-speed, 2s) linear infinite; }
-        .reverse-spin { animation: rotate-rev var(--spin-speed, 2s) linear infinite; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes rotate-rev { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-
-        .loading-spinner {
-            display: none; width: 40px; height: 40px; border: 4px solid rgba(0, 210, 255, 0.1);
-            border-radius: 50%; border-top-color: var(--primary);
-            animation: rotate 0.8s linear infinite; position: absolute;
-        }
-        .is-loading .loading-spinner { display: block; }
-        .is-loading #fan-icon { opacity: 0.2; }
-
-        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; }
-        
-        .btn { 
-            padding: 12px; border-radius: 12px; border: none; font-weight: 600; 
-            background: #f4f6f8; cursor: pointer; touch-action: manipulation;
-        }
-        .btn-active { background: var(--primary) !important; color: white; }
-        .btn-pwr.on { color: var(--success); background: rgba(46,204,113,0.1); }
-        .btn-pwr.off { color: var(--danger); background: rgba(255,107,107,0.1); }
-
-        .section-title { font-size: 0.7rem; color: var(--soft); text-transform: uppercase; margin: 20px 0 10px; text-align: left; border-left: 3px solid var(--primary); padding-left: 10px; }
-        input { width: 100%; padding: 14px; border-radius: 12px; margin-bottom: 10px; border: 2px solid #e3f2fd; box-sizing: border-box; }
+        :root { --p: #00d2ff; --bg: #f0f3f7; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 100%; max-width: 350px; text-align: center; }
+        .btn { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; width: 100%; margin: 5px 0; }
+        .btn-active { background: var(--p); color: white; }
+        input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        #status { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="status-msg" style="font-size: 0.7rem; margin-bottom: 8px; color: var(--soft);">Initialisation...</div>
+<div class="card">
+    <div id="status">Connexion...</div>
 
-    <div class="card" id="main-ui">
-        <div class="device-selector-container" id="selector-box">
-            <label style="font-size: 0.65rem; font-weight: 800; color: var(--soft); margin-bottom: 5px; display: block;">CHOISIR UN VENTILATEUR</label>
-            <select id="device-selector" onchange="switchDevice(this.value)"></select>
-        </div>
-
-        <div class="fan-visual" id="fan-container">
-            <div id="fan-icon">☢</div>
-            <div class="loading-spinner"></div>
-        </div>
-
-        <div id="timer-display" style="font-size: 2rem; font-weight: 800;">--:--</div>
-
-        <div class="section-title">Alimentation</div>
-        <div class="grid">
-            <button class="btn btn-pwr on" onclick="runCommand('fan_switch', true)">ON</button>
-            <button class="btn btn-pwr off" onclick="runCommand('fan_switch', false)">OFF</button>
-        </div>
-
-        <div class="section-title">Vitesse</div>
-        <div class="grid-6">
-            <button class="btn" id="spd-1" onclick="runCommand('fan_speed', 1)">1</button>
-            <button class="btn" id="spd-2" onclick="runCommand('fan_speed', 2)">2</button>
-            <button class="btn" id="spd-3" onclick="runCommand('fan_speed', 3)">3</button>
-            <button class="btn" id="spd-4" onclick="runCommand('fan_speed', 4)">4</button>
-            <button class="btn" id="spd-5" onclick="runCommand('fan_speed', 5)">5</button>
-            <button class="btn" id="spd-6" onclick="runCommand('fan_speed', 6)">6</button>
-        </div>
-
-        <div class="section-title">Options</div>
-        <div class="grid">
-            <button class="btn" id="dir-forward" onclick="runCommand('fan_direction', 'forward')">🔄 Été</button>
-            <button class="btn" id="dir-reverse" onclick="runCommand('fan_direction', 'reverse')">🔁 Hiver</button>
-        </div>
-
-        <button style="background:none; border:none; color:var(--soft); cursor:pointer; margin-top:25px; font-size: 0.7rem; text-decoration: underline;" onclick="toggleView(true)">🔧 Configuration Cloud</button>
-    </div>
-
-    <div class="card" id="config-section" style="display:none;">
-        <h3 style="color:var(--primary); margin-top:0;">Tuya Cloud</h3>
+    <div id="view-config" class="hidden">
+        <h3>Tuya Cloud</h3>
         <input type="text" id="cfg-id" placeholder="Access ID">
         <input type="password" id="cfg-sec" placeholder="Access Secret">
-        <button class="btn btn-active" style="width:100%; padding: 16px;" onclick="saveConfig()">ENREGISTRER</button>
-        <button class="btn" style="width:100%; margin-top:10px;" onclick="toggleView(false)">RETOUR</button>
+        <button class="btn btn-active" onclick="saveConfig()">ENREGISTRER</button>
     </div>
 
+    <div id="view-main" class="hidden">
+        <select id="dev-select" onchange="switchDev(this.value)" style="width:100%; padding:10px; margin-bottom:20px;"></select>
+        <div style="font-size: 50px; margin: 20px;">☢</div>
+        <button class="btn btn-active" onclick="send('fan_switch', true)">ON</button>
+        <button class="btn" onclick="send('fan_switch', false)">OFF</button>
+        <button class="btn" onclick="showConfig()">🔧 Réglages</button>
+    </div>
+</div>
+
 <script>
-    const getStored = (k) => localStorage.getItem(k);
-    
-    // 1. Charger la liste des ventilateurs
-// Remplace tes appels fetch par cette version plus robuste :
-async function loadDevices() {
-    const id = getStored('tuya_id');
-    const secret = getStored('tuya_secret');
-    if(!id || !secret) return;
+    const $ = id => document.getElementById(id);
+    const get = k => localStorage.getItem(k);
 
-    try {
-        const res = await fetch('/api/control', { // Vérifie bien le slash /
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                action: 'listDevices', 
-                accessId: id, 
-                accessSecret: secret 
-            })
-        });
-
-        // AJOUTE CECI POUR VOIR L'ERREUR DANS LA CONSOLE SI ÇA ÉCHOUE
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error("Erreur API détaillée:", errorText);
-            document.getElementById('status-msg').innerText = "Erreur API " + res.status;
-            return;
-        }
-
-        const data = await res.json();
-            if (data.success && data.result.length > 0) {
-                const sel = document.getElementById('device-selector');
-                sel.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-                document.getElementById('selector-box').style.display = 'block';
-                
-                // Sélectionner le dernier utilisé ou le premier par défaut
-                const activeId = getStored('tuya_device') || data.result[0].id;
-                sel.value = activeId;
-                switchDevice(activeId);
-            }
-        } catch (e) { document.getElementById('status-msg').innerText = "Erreur de liste"; }
-    }
-
-    function switchDevice(id) {
-        localStorage.setItem('tuya_device', id);
-        fetchDeviceStatus();
-    }
-
-    async function fetchDeviceStatus() {
-        const deviceId = getStored('tuya_device');
-        if (!deviceId) return;
+    async function call(action, extra = {}) {
         try {
             const res = await fetch('/api/control', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'getStatus', accessId: getStored('tuya_id'), accessSecret: getStored('tuya_secret'), deviceId })
+                body: JSON.stringify({ 
+                    action, 
+                    accessId: get('t_id'), 
+                    accessSecret: get('t_sec'),
+                    deviceId: get('t_dev'),
+                    ...extra 
+                })
             });
-            const data = await res.json();
-            if (data.success) updateUI(data.result);
-        } catch (e) { console.error(e); }
-    }
-
-    function updateUI(status) {
-        const states = {};
-        status.forEach(i => states[i.code] = i.value);
-        
-        const icon = document.getElementById('fan-icon');
-        const isOn = states['fan_switch'];
-        const dir = states['fan_direction'] || 'forward';
-        
-        icon.className = isOn ? (dir === 'forward' ? 'spinning' : 'reverse-spin') : '';
-        document.body.style.opacity = isOn ? "1" : "0.7";
-
-        document.querySelectorAll('[id^="spd-"]').forEach(b => b.classList.toggle('btn-active', b.id === 'spd-'+states['fan_speed']));
-        document.getElementById('dir-forward').classList.toggle('btn-active', dir === 'forward');
-        document.getElementById('dir-reverse').classList.toggle('btn-active', dir === 'reverse');
-        
-        if (states['countdown_left_fan'] > 0) {
-            const h = Math.floor(states['countdown_left_fan']/60);
-            const m = states['countdown_left_fan']%60;
-            document.getElementById('timer-display').innerText = `${h}h ${m<10?'0'+m:m}`;
-        } else {
-            document.getElementById('timer-display').innerText = "--:--";
+            return await res.json();
+        } catch (e) { 
+            alert("Erreur réseau : " + e.message);
+            return { success: false };
         }
     }
 
-    async function runCommand(code, value) {
-        document.getElementById('fan-container').classList.add('is-loading');
-        try {
-            await fetch('/api/control', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ action: 'sendCommand', code, value, accessId: getStored('tuya_id'), accessSecret: getStored('tuya_secret'), deviceId: getStored('tuya_device') })
-            });
-            setTimeout(fetchDeviceStatus, 600);
-        } finally { document.getElementById('fan-container').classList.remove('is-loading'); }
-    }
-
-    function toggleView(show) { 
-        document.getElementById('main-ui').style.display = show ? 'none' : 'block'; 
-        document.getElementById('config-section').style.display = show ? 'block' : 'none'; 
+    async function init() {
+        if (!get('t_id')) return showConfig();
+        
+        $('status').innerText = "Recherche des ventilateurs...";
+        const data = await call('listDevices');
+        
+        if (data.success && data.result.length > 0) {
+            $('dev-select').innerHTML = data.result.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+            if (!get('t_dev')) localStorage.setItem('t_dev', data.result[0].id);
+            $('dev-select').value = get('t_dev');
+            showMain();
+        } else {
+            alert("Aucun ventilateur trouvé sur ce compte.");
+            showConfig();
+        }
     }
 
     function saveConfig() {
-        localStorage.setItem('tuya_id', document.getElementById('cfg-id').value);
-        localStorage.setItem('tuya_secret', document.getElementById('cfg-sec').value);
+        localStorage.setItem('t_id', $('cfg-id').value);
+        localStorage.setItem('t_sec', $('cfg-sec').value);
         location.reload();
     }
 
-    // Lancement
-    if (getStored('tuya_id')) {
-        loadDevices();
-        setInterval(fetchDeviceStatus, 10000);
-    } else { toggleView(true); }
+    function showConfig() {
+        $('view-config').classList.remove('hidden');
+        $('view-main').classList.add('hidden');
+        $('status').innerText = "Configuration requise";
+    }
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    function showMain() {
+        $('view-main').classList.remove('hidden');
+        $('view-config').classList.add('hidden');
+        $('status').innerText = "Connecté";
+    }
+
+    function switchDev(id) {
+        localStorage.setItem('t_dev', id);
+        init();
+    }
+
+    async function send(code, value) {
+        $('status').innerText = "Envoi...";
+        const data = await call('sendCommand', { code, value });
+        $('status').innerText = data.success ? "C'est fait !" : "Erreur";
+    }
+
+    init();
 </script>
 </body>
 </html>
