@@ -45,6 +45,39 @@
 
         .hidden { display: none !important; }
         .status-pill { font-size: 0.7rem; font-weight: 800; padding: 5px 12px; border-radius: 50px; background: white; color: var(--primary); }
+
+        /* Le conteneur qui centre les boutons */
+  .temp-container {
+    display: flex;         /* Active le mode Flexbox */
+    justify-content: center; /* Centre horizontalement */
+    gap: 15px;            /* Espace entre les deux boutons */
+    margin-top: 10px;
+  }
+
+  /* Style de base pour les boutons */
+  .btn-temp {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+
+  .btn-temp:hover {
+    opacity: 0.8; /* Petit effet au survol */
+  }
+
+  /* Couleurs spécifiques */
+  .btn-froid {
+    background-color: #e0f2fe; /* Bleu très clair */
+    color: #0369a1;
+  }
+
+  .btn-chaud {
+    background-color: #fef3c7; /* Ambre clair */
+    color: #b45309;
+  }
     </style>
 </head>
 <body>
