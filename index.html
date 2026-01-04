@@ -205,55 +205,99 @@
         return await res.json();
     }
 
+    Voici la fonction refreshStatus entièrement réécrite. Elle intègre désormais des messages d'état intelligents, des couleurs dynamiques (Vert pour connecté, Rouge pour erreur, Orange pour la synchro) et gère l'animation du ventilateur.
+
+JavaScript
+
     async function refreshStatus() {
         const deviceId = document.getElementById('deviceSelect').value;
-        if(!deviceId) return;
+        const statusEl = document.getElementById('status');
         
-        const [schemaData, statusData] = await Promise.all([
-            apiCall({ action: 'getSchema', deviceId }),
-            apiCall({ action: 'getStatus', deviceId })
-        ]);
-
-        if(schemaData.success) {
-            const hasLight = (schemaData.result.functions || []).some(f => f.code === 'switch_led');
-            document.getElementById('lightSection').classList.toggle('hidden', !hasLight);
+        if(!deviceId) {
+            statusEl.innerText = 'AUCUN APPAREIL';
+            return;
         }
+        
+        // On affiche l'état de synchronisation en orange pendant l'appel
+        statusEl.innerText = 'SYNCHRONISATION...';
+        statusEl.style.color = '#f39c12'; 
 
-        if(statusData.success) {
-            const states = statusData.result;
-            const isOn = states.find(s => s.code === 'fan_switch')?.value === true;
-            const speed = states.find(s => s.code === 'fan_speed')?.value || 1;
-            const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
+        try {
+            const [schemaData, statusData] = await Promise.all([
+                apiCall({ action: 'getSchema', deviceId }),
+                apiCall({ action: 'getStatus', deviceId })
+            ]);
 
-            // Animation du ventilateur
-            const fanVisual = document.getElementById('fanVisual');
-            if(isOn) {
-                const duration = (2.5 - (speed * 0.35)) + 's';
-                document.documentElement.style.setProperty('--fan-speed', duration);
-                fanVisual.style.opacity = "1";
-            } else {
-                document.documentElement.style.setProperty('--fan-speed', '0s');
-                fanVisual.style.opacity = "0.4";
+            // 1. Gestion de l'affichage de la section Lumière
+            if(schemaData.success) {
+                const hasLight = (schemaData.result.functions || []).some(f => f.code === 'switch_led');
+                document.getElementById('lightSection').classList.toggle('hidden', !hasLight);
             }
 
-            document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-speed') == speed));
+            // 2. Mise à jour de l'interface si la récupération du statut est réussie
+            if(statusData.success) {
+                const states = statusData.result;
+                const isOn = states.find(s => s.code === 'fan_switch')?.value === true;
+                const speed = states.find(s => s.code === 'fan_speed')?.value || 1;
+                const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
 
-            const timerContainer = document.getElementById('timerContainer');
-            if (isOn && timer > 0) {
-                timerContainer.classList.remove('hidden');
-                document.getElementById('timeLeft').innerText = timer;
-            } else {
-                timerContainer.classList.add('hidden');
+                // Animation visuelle du ventilateur (CSS Variables)
+                const fanVisual = document.getElementById('fanVisual');
+                if(isOn) {
+                    // Calcul de la vitesse : plus la vitesse est haute, plus la durée est courte
+                    const duration = (2.5 - (speed * 0.35)) + 's';
+                    document.documentElement.style.setProperty('--fan-speed', duration);
+                    fanVisual.style.opacity = "1";
+                } else {
+                    document.documentElement.style.setProperty('--fan-speed', '0s');
+                    fanVisual.style.opacity = "0.4";
+                }
+
+                // Mise à jour visuelle des boutons de vitesse
+                document.querySelectorAll('.speed-btn').forEach(b => {
+                    b.classList.toggle('active', b.getAttribute('data-speed') == speed);
+                });
+
+                // Gestion du minuteur
+                const timerContainer = document.getElementById('timerContainer');
+                if (isOn && timer > 0) {
+                    timerContainer.classList.remove('hidden');
+                    document.getElementById('timeLeft').innerText = timer;
+                } else {
+                    timerContainer.classList.add('hidden');
+                }
+
+                // Message final de succès
+                statusEl.innerText = 'CONNECTÉ';
+                statusEl.style.color = '#27ae60'; // Un beau vert
+            } 
+            else {
+                // Gestion de l'erreur venant de l'API Tuya
+                statusEl.innerText = 'ERREUR TUYA';
+                statusEl.style.color = '#e74c3c'; // Rouge
             }
-            document.getElementById('status').innerText = 'Connecté';
+        } catch (error) {
+            // Gestion d'une erreur réseau ou crash
+            statusEl.innerText = 'HORS LIGNE';
+            statusEl.style.color = '#c0392b';
         }
     }
 
+// Message quand on envoie une commande
     async function send(code, value) {
         const deviceId = document.getElementById('deviceSelect').value;
-        document.getElementById('status').innerText = '...';
+        const statusEl = document.getElementById('status');
+        
+        statusEl.innerText = 'Envoi...'; // Nouveau message d'action
+        statusEl.style.color = 'var(--primary)';
+        
         const data = await apiCall({ action: 'send', deviceId, code, value });
-        if(data.success) setTimeout(refreshStatus, 1500);
+        if(data.success) {
+            setTimeout(refreshStatus, 1200);
+        } else {
+            statusEl.innerText = 'Échec';
+            statusEl.style.color = '#ef4444';
+        }
     }
 
     async function init() {
