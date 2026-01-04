@@ -184,6 +184,12 @@
     </div>
 </div>
 
+Oui, le plus simple et le plus sûr est de recopier tout le bloc <script> (de la balise ouvrante à la balise fermante).
+
+Voici le script complet, propre et prêt à l'emploi. Il remplace tout ce qu'il y a entre <script> et </script> à la fin de ton fichier :
+
+JavaScript
+
 <script>
     function saveConfig() {
         localStorage.setItem('tuya_id', document.getElementById('tuya_id').value);
@@ -196,18 +202,29 @@
         document.getElementById('setupScreen').classList.remove('hidden');
     }
 
+    // Fonction d'appel API sécurisée pour éviter le blocage
     async function apiCall(data) {
-        const res = await fetch('/api/control', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accessId: localStorage.getItem('tuya_id'), accessSecret: localStorage.getItem('tuya_secret'), ...data })
-        });
-        return await res.json();
+        try {
+            const res = await fetch('/api/control', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    accessId: localStorage.getItem('tuya_id'), 
+                    accessSecret: localStorage.getItem('tuya_secret'), 
+                    ...data 
+                })
+            });
+            if (!res.ok) throw new Error('Erreur Serveur');
+            return await res.json();
+        } catch (e) {
+            console.error("Erreur API:", e);
+            return { success: false, msg: "Réseau HS" };
+        }
     }
 
-
     async function refreshStatus() {
-        const deviceId = document.getElementById('deviceSelect').value;
+        const deviceSelect = document.getElementById('deviceSelect');
+        const deviceId = deviceSelect.value;
         const statusEl = document.getElementById('status');
         
         if(!deviceId) {
@@ -215,7 +232,7 @@
             return;
         }
         
-        // On affiche l'état de synchronisation en orange pendant l'appel
+        // On affiche l'état de synchronisation
         statusEl.innerText = 'SYNCHRONISATION...';
         statusEl.style.color = '#f39c12'; 
 
@@ -225,23 +242,21 @@
                 apiCall({ action: 'getStatus', deviceId })
             ]);
 
-            // 1. Gestion de l'affichage de la section Lumière
-            if(schemaData.success) {
+            // Mise à jour de la section Lumière
+            if(schemaData && schemaData.success) {
                 const hasLight = (schemaData.result.functions || []).some(f => f.code === 'switch_led');
                 document.getElementById('lightSection').classList.toggle('hidden', !hasLight);
             }
 
-            // 2. Mise à jour de l'interface si la récupération du statut est réussie
-            if(statusData.success) {
+            // Mise à jour de l'interface si succès
+            if(statusData && statusData.success) {
                 const states = statusData.result;
                 const isOn = states.find(s => s.code === 'fan_switch')?.value === true;
                 const speed = states.find(s => s.code === 'fan_speed')?.value || 1;
                 const timer = states.find(s => s.code === 'countdown_left_fan')?.value || 0;
 
-                // Animation visuelle du ventilateur (CSS Variables)
                 const fanVisual = document.getElementById('fanVisual');
                 if(isOn) {
-                    // Calcul de la vitesse : plus la vitesse est haute, plus la durée est courte
                     const duration = (2.5 - (speed * 0.35)) + 's';
                     document.documentElement.style.setProperty('--fan-speed', duration);
                     fanVisual.style.opacity = "1";
@@ -250,12 +265,10 @@
                     fanVisual.style.opacity = "0.4";
                 }
 
-                // Mise à jour visuelle des boutons de vitesse
                 document.querySelectorAll('.speed-btn').forEach(b => {
                     b.classList.toggle('active', b.getAttribute('data-speed') == speed);
                 });
 
-                // Gestion du minuteur
                 const timerContainer = document.getElementById('timerContainer');
                 if (isOn && timer > 0) {
                     timerContainer.classList.remove('hidden');
@@ -264,32 +277,30 @@
                     timerContainer.classList.add('hidden');
                 }
 
-                // Message final de succès
-                statusEl.innerText = 'CONNECTÉ';
-                statusEl.style.color = '#27ae60'; // Un beau vert
+                statusEl.innerText = 'Connecté';
+                statusEl.style.color = '#27ae60'; 
             } 
             else {
-                // Gestion de l'erreur venant de l'API Tuya
                 statusEl.innerText = 'ERREUR TUYA';
-                statusEl.style.color = '#e74c3c'; // Rouge
+                statusEl.style.color = '#e74c3c';
             }
         } catch (error) {
-            // Gestion d'une erreur réseau ou crash
             statusEl.innerText = 'HORS LIGNE';
             statusEl.style.color = '#c0392b';
         }
     }
 
-// Message quand on envoie une commande
     async function send(code, value) {
         const deviceId = document.getElementById('deviceSelect').value;
         const statusEl = document.getElementById('status');
-        
-        statusEl.innerText = 'Envoi...'; // Nouveau message d'action
+        if(!deviceId) return;
+
+        statusEl.innerText = 'Envoi...';
         statusEl.style.color = 'var(--primary)';
         
         const data = await apiCall({ action: 'send', deviceId, code, value });
-        if(data.success) {
+        if(data && data.success) {
+            // On attend un peu que Tuya mette à jour son état réel avant de rafraîchir
             setTimeout(refreshStatus, 1200);
         } else {
             statusEl.innerText = 'Échec';
@@ -303,15 +314,18 @@
         if (!tid || !tsec) { showSetup(); return; }
 
         const data = await apiCall({ action: 'listDevices' });
-        if (data.success) {
+        if (data && data.success && data.result.length > 0) {
             const select = document.getElementById('deviceSelect');
             select.innerHTML = data.result.map(d => `<option value="${d.id}">${d.name.toUpperCase()}</option>`).join('');
             refreshStatus();
+            // Rafraîchissement automatique toutes le 10 secondes
             setInterval(refreshStatus, 10000);
         } else {
             showSetup();
         }
     }
+    
+    // Lancement de l'application
     init();
 </script>
 </body>
