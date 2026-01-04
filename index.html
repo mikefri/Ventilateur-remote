@@ -103,13 +103,15 @@
             <div class="d-flex gap-1 mb-3 overflow-auto pb-2">
                 <button onclick="send('work_mode', 'white')" class="mode-btn" data-mode="white">Blanc</button>
                 <button onclick="send('work_mode', 'colour')" class="mode-btn" data-mode="colour">Couleur</button>
-                <button onclick="send('work_mode', 'scene')" class="mode-btn" data-mode="scene">Scène</button>
-                <button onclick="send('work_mode', 'music')" class="mode-btn" data-mode="music">Musique</button>
+
             </div>
             <label class="section-label">Luminosité</label>
             <input type="range" id="brightRange" class="form-range mb-3" min="10" max="1000" onchange="send('bright_value', parseInt(this.value))">
             <label class="section-label">Température</label>
-            <input type="range" id="tempRange" class="form-range" min="0" max="1000" onchange="send('temp_value', parseInt(this.value))">
+<div class="temp-buttons">
+    <button type="button" class="btn btn-light" onclick="send('temp_value', 0)">Blanc Froid</button>
+    <button type="button" class="btn btn-warning" onclick="send('temp_value', 1000)">Blanc Chaud</button>
+</div>
         </div>
 
         <div class="control-section mb-0">
