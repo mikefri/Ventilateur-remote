@@ -101,9 +101,6 @@
                 <div class="col-6"><button onclick="send('switch_led', false)" class="btn btn-custom btn-off w-100">OFF</button></div>
             </div>
             <div class="d-flex gap-1 mb-3 overflow-auto pb-2">
-                <button onclick="send('work_mode', 'white')" class="mode-btn" data-mode="white">Blanc</button>
-                <button onclick="send('work_mode', 'colour')" class="mode-btn" data-mode="colour">Couleur</button>
-
             </div>
             <label class="section-label">Luminosité</label>
             <input type="range" id="brightRange" class="form-range mb-3" min="10" max="1000" onchange="send('bright_value', parseInt(this.value))">
